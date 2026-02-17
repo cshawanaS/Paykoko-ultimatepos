@@ -178,7 +178,7 @@ class KokoController extends Controller
 
             // Validate Signature
             if (!$this->validateRequest($request, $koko_setting)) {
-                Log::error('Koko Webhook Error: Signature validation failed');
+                Log::error('Koko Webhook Error: Signature validation failed. Request: ' . json_encode($request->all()));
                 return response('Signature validation failed', 400);
             }
 
@@ -228,9 +228,19 @@ class KokoController extends Controller
         $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN);
 
         if ($status === 'SUCCESS') {
-            // Frontend successes are often redirects after the backend has already processed the webhook
-            // but we can check if payment exists here too for robustness
+            $koko_setting = KokoSetting::where('business_id', $transaction->business_id)->first();
             
+            // Fallback processing if webhook hasn't hit or failed
+            if ($koko_setting && !empty($trn_id) && !$this->isPaymentExists($trn_id, $koko_setting->payment_method)) {
+                Log::info('Koko Return: Processing payment as fallback for Trn ID: ' . $trn_id);
+                $amount = $transaction->final_total; 
+                try {
+                    $this->processPayment($transaction, $amount, 'LKR', $trn_id, $koko_setting);
+                } catch (\Exception $e) {
+                    Log::error('Koko Return Fallback Error: ' . $e->getMessage());
+                }
+            }
+
             $output = [
                 'success' => true,
                 'msg' => 'Payment successful for Order ID: ' . ($request->input('orderId') ?? $transaction->invoice_no)

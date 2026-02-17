@@ -54,7 +54,7 @@ class KokoService
         
         // REFERENCE NOTE: The WordPress plugin uses the same URL for all three parameters
         $returnUrl = route('koko.return', ['id' => $transaction->id]);
-        $responseUrl = $returnUrl; // TEST: Align with reference to see if signature verification is sensitive to this
+        $responseUrl = route('koko.notify');
         $cancelUrl = $returnUrl;
         
         $reference = $koko_setting->merchant_id . rand(111, 999) . '-' . $transaction->invoice_no;
