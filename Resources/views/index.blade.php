@@ -43,14 +43,14 @@
                 <div class="col-sm-6">
                     <div class="form-group">
                         {!! Form::label('public_key', 'Public Key (PEM format):*') !!}
-                        {!! Form::textarea('public_key', $koko_setting->public_key ? '--- KEY ALREADY SET ---' : '', ['class' => 'form-control', 'rows' => 4, 'placeholder' => 'Paste Koko Public Key here']) !!}
+                        {!! Form::textarea('public_key', $koko_setting->public_key, ['class' => 'form-control', 'rows' => 4, 'placeholder' => 'Paste Koko Public Key here']) !!}
                         <p class="help-block">Used for webhook signature verification</p>
                     </div>
                 </div>
                 <div class="col-sm-6">
                     <div class="form-group">
                         {!! Form::label('private_key', 'Private Key (PEM format):*') !!}
-                        {!! Form::textarea('private_key', $koko_setting->private_key ? '--- KEY ALREADY SET ---' : '', ['class' => 'form-control', 'rows' => 4, 'placeholder' => 'Paste Koko Private Key here']) !!}
+                        {!! Form::textarea('private_key', $koko_setting->private_key, ['class' => 'form-control', 'rows' => 4, 'placeholder' => 'Paste Koko Private Key here']) !!}
                         <p class="help-block">Used for signing payment requests</p>
                     </div>
                 </div>

@@ -78,6 +78,17 @@ class KokoController extends Controller
                 'fee_percentage', 'max_fee_amount'
             ]);
 
+            // Do not overwrite sensitive keys if they are empty or contain placeholder
+            if (empty($input['api_key'])) {
+                unset($input['api_key']);
+            }
+            if (empty($input['public_key']) || $input['public_key'] == '--- KEY ALREADY SET ---') {
+                unset($input['public_key']);
+            }
+            if (empty($input['private_key']) || $input['private_key'] == '--- KEY ALREADY SET ---') {
+                unset($input['private_key']);
+            }
+
             $input['enable_fee'] = $request->has('enable_fee') ? 1 : 0;
             $input['fee_percentage'] = !empty($input['fee_percentage']) ? $this->transactionUtil->num_uf($input['fee_percentage']) : 0;
             $input['max_fee_amount'] = !empty($input['max_fee_amount']) ? $this->transactionUtil->num_uf($input['max_fee_amount']) : 0;
