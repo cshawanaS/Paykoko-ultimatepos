@@ -1,0 +1,18 @@
+{
+    "name": "modules/koko",
+    "description": "Koko BNPL Payment Gateway Module",
+    "type": "laravel-module",
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Modules\\Koko\\Providers\\KokoServiceProvider"
+            ],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Koko\\": ""
+        }
+    }
+}

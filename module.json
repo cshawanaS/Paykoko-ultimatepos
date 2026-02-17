@@ -1,0 +1,16 @@
+{
+    "name": "Koko",
+    "alias": "koko",
+    "description": "Koko BNPL Payment Integration for UltimatePOS",
+    "keywords": [
+        "payment",
+        "koko",
+        "bnpl",
+        "buy now pay later"
+    ],
+    "priority": 0,
+    "providers": [
+        "Modules\\Koko\\Providers\\KokoServiceProvider"
+    ],
+    "files": []
+}
