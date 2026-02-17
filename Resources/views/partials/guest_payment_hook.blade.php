@@ -1,67 +1,26 @@
 @php
     $token = request()->route('token');
-    $transaction = \App\Transaction::where('invoice_token', $token)->with(['business', 'contact'])->first();
+    $transaction = \App\Transaction::where('invoice_token', $token)->with(['business', 'contact', 'business.currency'])->first();
     
     // If not a token route, try to get from view data if available (internal view)
     if (empty($transaction) && !empty($transaction_id)) {
-        $transaction = \App\Transaction::with(['business', 'contact'])->find($transaction_id);
+        $transaction = \App\Transaction::with(['business', 'contact', 'business.currency'])->find($transaction_id);
     }
 
     if (!empty($transaction)) {
-        $koko_setting = \Modules\Koko\Entities\KokoSetting::where('business_id', $transaction->business_id)->first();
+        $kokoService = new \Modules\Koko\Services\KokoService();
+        $paymentData = $kokoService->getPaymentData($transaction);
     }
 @endphp
 
-@if(!empty($transaction) && !empty($koko_setting) && !empty($koko_setting->merchant_id) && $transaction->payment_status != 'paid')
+@if(!empty($transaction) && !empty($paymentData) && !isset($paymentData['error']) && $transaction->payment_status != 'paid')
     @php
-        $business_util = new \App\Utils\BusinessUtil();
-        $business_details = $business_util->getDetails($transaction->business_id);
-        
-        $koko_currency = $business_details->currency_code;
-        
-        // Calculate remaining balance for partial payments
-        $paid_amount = \App\TransactionPayment::where('transaction_id', $transaction->id)->sum('amount');
-        $remaining_balance = $transaction->final_total - $paid_amount;
-        
-        // Use fee service
-        $feeService = new \Modules\Koko\Services\KokoFeeService();
-        $feeData = $feeService->calculateConvenienceFee($remaining_balance, $koko_setting);
-        
+        $koko_currency = $paymentData['currency'];
+        $feeData = $paymentData['fee_data'];
         $total_payable = $feeData['total_payable'];
         $convenience_fee = $feeData['convenience_fee'];
         $total_with_fee = $feeData['total_with_fee'];
         $fee_display_percent = $feeData['fee_display_percent'];
-        $koko_amount = $feeData['koko_amount'];
-        
-        $koko_order_id = $transaction->id;
-        $koko_mode = $koko_setting->mode ?? 'sandbox';
-        $koko_url = ($koko_mode == 'live') ? 'https://prodapi.paykoko.com/api/merchants/orderCreate' : 'https://devapi.paykoko.com/api/merchants/orderCreate';
-        
-        // Generate Signature
-        $pluginName = "woocommerce";
-        $pluginVersion = "8.6.0";
-        $returnUrl = route('koko.return', ['id' => $transaction->id]);
-        $responseUrl = route('koko.notify');
-        $cancelUrl = $returnUrl;
-        $reference = $koko_setting->merchant_id . rand(111, 999) . '-' . $transaction->invoice_no;
-        $firstName = $transaction->contact->first_name;
-        $lastName = $transaction->contact->last_name ?? '';
-        $email = $transaction->contact->email ?? '';
-        $productName = "Invoice " . $transaction->invoice_no;
-        $apiKey = $koko_setting->api_key;
-        
-        $dataString = $koko_setting->merchant_id . $koko_amount . $koko_currency . $pluginName . $pluginVersion . 
-                      $returnUrl . $responseUrl . $koko_order_id . $reference . $firstName . 
-                      $lastName . $email . $productName . $apiKey . $cancelUrl;
-
-        $privateKey = $koko_setting->private_key;
-        $pkeyid = openssl_get_privatekey($privateKey);
-        $signatureEncoded = "";
-        if ($pkeyid) {
-            openssl_sign($dataString, $signature, $pkeyid, OPENSSL_ALGO_SHA256);
-            $signatureEncoded = base64_encode($signature);
-            openssl_free_key($pkeyid);
-        }
     @endphp
 
     <div class="row">
@@ -87,28 +46,13 @@
             </div>
             @endif
 
-            <form action="{{ $koko_url }}" method="POST" id="koko_guest_payment_form">
-                <input type="hidden" name="_mId" value="{{ $koko_setting->merchant_id }}">
-                <input type="hidden" name="api_key" value="{{ $koko_setting->api_key }}">
-                <input type="hidden" name="_returnUrl" value="{{ $returnUrl }}">
-                <input type="hidden" name="_responseUrl" value="{{ $responseUrl }}">
-                <input type="hidden" name="_cancelUrl" value="{{ $cancelUrl }}">
-                <input type="hidden" name="_currency" value="{{ $koko_currency }}">
-                <input type="hidden" name="_amount" value="{{ $koko_amount }}">
-                <input type="hidden" name="_reference" value="{{ $reference }}">
-                <input type="hidden" name="_pluginName" value="{{ $pluginName }}">
-                <input type="hidden" name="_pluginVersion" value="{{ $pluginVersion }}">
-                <input type="hidden" name="_orderId" value="{{ $koko_order_id }}">
-                <input type="hidden" name="_firstName" value="{{ $firstName }}">
-                <input type="hidden" name="_lastName" value="{{ $lastName }}">
-                <input type="hidden" name="_email" value="{{ $email }}">
-                <input type="hidden" name="_description" value="{{ $productName }}">
-                <input type="hidden" name="_mobileNo" value="{{ $transaction->contact->mobile }}">
-                <input type="hidden" name="dataString" value="{{ $dataString }}">
-                <input type="hidden" name="signature" value="{{ $signatureEncoded }}">
+            <form action="{{ $paymentData['action_url'] }}" method="POST" id="koko_guest_payment_form">
+                @foreach($paymentData['fields'] as $key => $value)
+                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                @endforeach
                 
                 <button type="submit" style="border: none; background: none; padding: 0; cursor: pointer;">
-                    <img src="https://devapi.paykoko.com/assets/img/daraz-koko.png" alt="Pay with Koko" style="width: 100%; max-width: 200px;">
+                    <img src="{{ asset('modules/koko/img/daraz-koko.png') }}" alt="Pay with Koko" style="width: 100%; max-width: 200px;">
                 </button>
             </form>
         </div>
