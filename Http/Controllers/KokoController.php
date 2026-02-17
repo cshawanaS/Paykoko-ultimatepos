@@ -52,8 +52,8 @@ class KokoController extends Controller
         }
 
         $accounts = [];
-        if ($this->moduleUtil->isModuleEnabled('Account')) {
-            $accounts = \App\Account::forDropdown($business_id, true, false);
+        if ($this->moduleUtil->isModuleEnabled('account')) {
+            $accounts = \App\Account::forDropdown($business_id, false, false);
         }
 
         // Get available custom payment types to show their current labels
