@@ -4,6 +4,11 @@ Route::group(['middleware' => ['web', 'auth', 'SetSessionData', 'language', 'tim
     Route::get('/settings', 'KokoController@index')->name('koko.settings');
     Route::post('/settings', 'KokoController@updateSettings')->name('koko.update_settings');
     Route::any('/return/{id}', 'KokoController@paymentReturn')->name('koko.return');
+
+    // Install routes
+    Route::get('/install', 'InstallController@index');
+    Route::get('/update', 'InstallController@update');
+    Route::get('/uninstall', 'InstallController@uninstall');
 });
 
 // Koko Webhook
