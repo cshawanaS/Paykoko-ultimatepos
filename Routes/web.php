@@ -10,10 +10,13 @@ Route::group(['middleware' => ['web', 'auth', 'SetSessionData', 'language', 'tim
     Route::get('/uninstall', 'InstallController@uninstall');
 });
 
-// Guest-safe return route
+// Guest-safe return route (Remains for secondary uses/backward compatibility if needed, but primary is the callback)
 Route::group(['middleware' => ['web', 'language'], 'prefix' => 'koko'], function () {
     Route::any('/return/{id}', 'KokoController@paymentReturn')->name('koko.return');
 });
 
-// Koko Webhook
+// Unified Koko Callback (Safe from CSRF via /webhook/* exclusion)
+Route::any('/webhook/koko/callback/{id}', 'KokoController@handleCallback')->name('koko.callback');
+
+// Deprecated notification route (Keeping temporary for safe migration if any cached forms exist)
 Route::post('/webhook/koko/notify', 'KokoController@notify')->name('koko.notify');

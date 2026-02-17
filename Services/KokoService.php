@@ -53,9 +53,12 @@ class KokoService
         $pluginVersion = "8.6.0";
         
         // REFERENCE NOTE: The WordPress plugin uses the same URL for all three parameters
-        $returnUrl = route('koko.return', ['id' => $transaction->id]);
-        $responseUrl = route('koko.notify');
-        $cancelUrl = $returnUrl;
+        // Using a /webhook/ prefix ensures it is excluded from CSRF in VerifyCsrfToken.php
+        $callbackUrl = route('koko.callback', ['id' => $transaction->id]);
+        
+        $returnUrl = $callbackUrl;
+        $responseUrl = $callbackUrl;
+        $cancelUrl = $callbackUrl;
         
         $reference = $koko_setting->merchant_id . rand(111, 999) . '-' . $transaction->invoice_no;
         $firstName = !empty($transaction->contact->first_name) ? $transaction->contact->first_name : $transaction->contact->name;

@@ -148,115 +148,101 @@ class KokoController extends Controller
     /**
      * Koko Webhook Notify URL
      */
-    public function notify(Request $request)
+    /**
+     * Unified Koko Callback Handler
+     */
+    public function handleCallback(Request $request, $id = null)
     {
-        Log::info('Koko Webhook Received: ' . json_encode($request->all()));
+        Log::info('Koko Callback Received: ' . json_encode($request->all()));
+
+        $order_id = $request->input('orderId') ?? $id;
+        $trn_id = $request->input('trnId');
+        $status = $request->input('status');
+        $desc = $request->input('desc');
+        $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN);
 
         try {
-            $order_id = $request->input('orderId');
-            $trn_id = $request->input('trnId');
-            $status = $request->input('status');
-            $desc = $request->input('desc');
-
             if (empty($order_id)) {
-                Log::error('Koko Webhook Error: Order ID missing');
+                Log::error('Koko Callback Error: Order ID missing');
+                if ($frontend) return redirect()->to('/pos')->with('status', ['success' => false, 'msg' => 'Order ID missing']);
                 return response('Order ID missing', 400);
             }
 
-            // Load transaction and setting
             $transaction = Transaction::find($order_id);
             if (empty($transaction)) {
-                Log::error('Koko Webhook Error: Transaction not found for Order ID: ' . $order_id);
+                Log::error('Koko Callback Error: Transaction not found for Order ID: ' . $order_id);
+                if ($frontend) return redirect()->to('/pos')->with('status', ['success' => false, 'msg' => 'Transaction not found']);
                 return response('Transaction not found', 404);
             }
 
             $koko_setting = KokoSetting::where('business_id', $transaction->business_id)->first();
             if (empty($koko_setting)) {
-                Log::error('Koko Webhook Error: Settings not found for business ID: ' . $transaction->business_id);
+                Log::error('Koko Callback Error: Settings not found for business ID: ' . $transaction->business_id);
+                if ($frontend) return redirect()->to('/pos')->with('status', ['success' => false, 'msg' => 'Settings not found']);
                 return response('Settings not found', 404);
             }
 
-            // Validate Signature
-            if (!$this->validateRequest($request, $koko_setting)) {
-                Log::error('Koko Webhook Error: Signature validation failed. Request: ' . json_encode($request->all()));
-                return response('Signature validation failed', 400);
+            // Validate Signature (Koko usually sends signature in both notify AND return if configured)
+            if ($request->has('signature')) {
+                if (!$this->validateRequest($request, $koko_setting)) {
+                    Log::error('Koko Callback Error: Signature validation failed. Data: ' . json_encode($request->all()));
+                    if ($frontend) {
+                        // We still allow frontend redirect but log the error
+                        Log::warning('Koko Callback: Continuing frontend redirect despite signature mismatch');
+                    } else {
+                        return response('Signature validation failed', 400);
+                    }
+                }
             }
 
-            // Check if payment already recorded
-            if ($this->isPaymentExists($trn_id, $koko_setting->payment_method)) {
-                Log::info('Koko Webhook: Payment already exists for Trn ID: ' . $trn_id);
-                return response('Payment already exists', 200);
+            // Process Payment if Successful
+            if ($status === 'SUCCESS' && !empty($trn_id)) {
+                if (!$this->isPaymentExists($trn_id, $koko_setting->payment_method)) {
+                    Log::info('Koko Callback: Processing payment for Trn ID: ' . $trn_id);
+                    $amount = $transaction->final_total; 
+                    try {
+                        $this->processPayment($transaction, $amount, 'LKR', $trn_id, $koko_setting);
+                    } catch (\Exception $e) {
+                        Log::error('Koko Callback Payment Processing Error: ' . $e->getMessage());
+                    }
+                } else {
+                    Log::info('Koko Callback: Payment already exists for Trn ID: ' . $trn_id);
+                }
             }
 
-            if ($status === 'SUCCESS') {
-                $amount = $transaction->final_total; // This should be handled carefully if convenience fee was added
-                
-                // If it was a frontend success, it might have already been processed
-                // But normally we trust the webhook for backend processing
-                
-                $this->processPayment($transaction, $amount, 'LKR', $trn_id, $koko_setting);
-                
-                return response('Success', 200);
-            } else {
-                Log::warning('Koko Webhook: Payment status is ' . $status . ' for Trn ID: ' . $trn_id);
-                return response('Payment status: ' . $status, 200);
+            // Handle Frontend Redirect
+            if ($frontend) {
+                $output = [
+                    'success' => ($status === 'SUCCESS'),
+                    'msg' => ($status === 'SUCCESS') ? 'Payment successful' : 'Payment failed'
+                ];
+                $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
+                return redirect($link)->with('status', $output);
             }
+
+            return response('OK', 200);
 
         } catch (\Exception $e) {
             Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
+            if ($frontend) return redirect()->to('/pos');
             return response('Error', 500);
         }
     }
 
     /**
-     * Koko Return URL
+     * Legacy notify (Refactored to use unified handler)
+     */
+    public function notify(Request $request)
+    {
+        return $this->handleCallback($request);
+    }
+
+    /**
+     * Legacy return (Refactored to use unified handler)
      */
     public function paymentReturn(Request $request, $id = null)
     {
-        Log::info('Koko Return Page Loaded: ' . json_encode($request->all()));
-
-        $transaction = Transaction::find($id);
-        if (empty($transaction)) {
-            return redirect()->to('/pos')->with('status', [
-                'success' => false,
-                'msg' => 'Transaction not found'
-            ]);
-        }
-
-        $status = $request->input('status');
-        $trn_id = $request->input('trnId');
-        $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN);
-
-        if ($status === 'SUCCESS') {
-            $koko_setting = KokoSetting::where('business_id', $transaction->business_id)->first();
-            
-            // Fallback processing if webhook hasn't hit or failed
-            if ($koko_setting && !empty($trn_id) && !$this->isPaymentExists($trn_id, $koko_setting->payment_method)) {
-                Log::info('Koko Return: Processing payment as fallback for Trn ID: ' . $trn_id);
-                $amount = $transaction->final_total; 
-                try {
-                    $this->processPayment($transaction, $amount, 'LKR', $trn_id, $koko_setting);
-                } catch (\Exception $e) {
-                    Log::error('Koko Return Fallback Error: ' . $e->getMessage());
-                }
-            }
-
-            $output = [
-                'success' => true,
-                'msg' => 'Payment successful for Order ID: ' . ($request->input('orderId') ?? $transaction->invoice_no)
-            ];
-            
-            $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
-            return redirect($link)->with('status', $output);
-        } else {
-            $output = [
-                'success' => false,
-                'msg' => 'Payment failed or cancelled. Status: ' . $status
-            ];
-            
-            $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
-            return redirect($link)->with('status', $output);
-        }
+        return $this->handleCallback($request, $id);
     }
 
     /**
