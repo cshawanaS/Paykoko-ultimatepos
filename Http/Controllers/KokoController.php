@@ -15,18 +15,22 @@ use App\Utils\ModuleUtil;
 use App\Utils\BusinessUtil;
 use Modules\Koko\Entities\KokoSetting;
 use Modules\Koko\Services\KokoFeeService;
+use Modules\Koko\Services\KokoService; // Added KokoService import
 
 class KokoController extends Controller
 {
     protected $transactionUtil;
     protected $moduleUtil;
-    protected $businessUtil;
+    protected $kokoService; // Changed from businessUtil to kokoService
 
-    public function __construct(TransactionUtil $transactionUtil, ModuleUtil $moduleUtil, BusinessUtil $businessUtil)
+    /**
+     * Constructor
+     */
+    public function __construct(TransactionUtil $transactionUtil, ModuleUtil $moduleUtil, KokoService $kokoService) // Changed parameters
     {
         $this->transactionUtil = $transactionUtil;
         $this->moduleUtil = $moduleUtil;
-        $this->businessUtil = $businessUtil;
+        $this->kokoService = $kokoService; // New assignment
     }
 
     /**
@@ -257,22 +261,11 @@ class KokoController extends Controller
         $trnId = $request->input('trnId');
         $status = $request->input('status');
         $desc = $request->input('desc');
-        $signature = base64_decode($request->input('signature'));
+        $signature = $request->input('signature');
 
         $dataString = $orderId . $trnId . $status . $desc;
         
-        $publicKey = $koko_setting->public_key;
-        
-        $pubKeyid = openssl_get_publickey($publicKey);
-        if (!$pubKeyid) {
-            Log::error('Koko Validation Error: Invalid public key');
-            return false;
-        }
-        
-        $signatureVerify = openssl_verify($dataString, $signature, $pubKeyid, OPENSSL_ALGO_SHA256);
-        openssl_free_key($pubKeyid);
-
-        return $signatureVerify === 1;
+        return $this->kokoService->validateSignature($dataString, $signature, $koko_setting->public_key);
     }
 
     /**

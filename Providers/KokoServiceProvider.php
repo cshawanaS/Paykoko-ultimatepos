@@ -38,7 +38,7 @@ class KokoServiceProvider extends ServiceProvider
                      $kokoHtml = view('koko::partials.invoice_hook')->render();
                      
                      if (isset($viewData['receipt']) && is_array($viewData['receipt']) && isset($viewData['receipt']['html_content'])) {
-                         $viewData['receipt']['html_content'] .= $kokoHtml;
+                         $viewData['receipt']['html_content'] = $kokoHtml . $viewData['receipt']['html_content'];
                          $view->with('receipt', $viewData['receipt']);
                      }
                 }

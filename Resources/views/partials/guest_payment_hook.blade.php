@@ -2,7 +2,6 @@
     $token = request()->route('token');
     $transaction = \App\Transaction::where('invoice_token', $token)->with(['business', 'contact', 'business.currency'])->first();
     
-    // If not a token route, try to get from view data if available (internal view)
     if (empty($transaction) && !empty($transaction_id)) {
         $transaction = \App\Transaction::with(['business', 'contact', 'business.currency'])->find($transaction_id);
     }
@@ -16,45 +15,37 @@
 @if(!empty($transaction) && !empty($paymentData) && !isset($paymentData['error']) && $transaction->payment_status != 'paid')
     @php
         $koko_currency = $paymentData['currency'];
+        $installment_amount = $paymentData['installment_amount'];
         $feeData = $paymentData['fee_data'];
-        $total_payable = $feeData['total_payable'];
         $convenience_fee = $feeData['convenience_fee'];
-        $total_with_fee = $feeData['total_with_fee'];
-        $fee_display_percent = $feeData['fee_display_percent'];
     @endphp
 
     <div class="row">
         <div class="col-md-12 text-center hidden-print" style="margin-top: 20px;">
-            <h4 style="margin-bottom: 10px;">Pay with Koko</h4>
-            
-            @if($convenience_fee > 0)
-            <div style="background: #f9f9f9; padding: 15px; margin-bottom: 15px; border-radius: 5px; max-width: 400px; margin: 0 auto 15px; border: 1px solid #ddd;">
-                <table style="width: 100%; text-align: left; font-size: 14px;">
-                    <tr>
-                        <td style="padding: 5px 0;">Invoice Amount:</td>
-                        <td style="text-align: right; padding: 5px 0;"><strong>{{ $koko_currency }} {{ number_format($total_payable, 2) }}</strong></td>
-                    </tr>
-                    <tr style="color: #666;">
-                        <td style="padding: 5px 0;">Koko Handling Fee ({{ $fee_display_percent }}%):</td>
-                        <td style="text-align: right; padding: 5px 0;">{{ $koko_currency }} {{ number_format($convenience_fee, 2) }}</td>
-                    </tr>
-                    <tr style="border-top: 2px solid #333; font-weight: bold; font-size: 16px;">
-                        <td style="padding: 10px 0 5px 0;">Total to Pay:</td>
-                        <td style="text-align: right; padding: 10px 0 5px 0; color: #28a745;">{{ $koko_currency }} {{ number_format($total_with_fee, 2) }}</td>
-                    </tr>
-                </table>
-            </div>
-            @endif
-
-            <form action="{{ $paymentData['action_url'] }}" method="POST" id="koko_guest_payment_form">
-                @foreach($paymentData['fields'] as $key => $value)
-                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                @endforeach
+            <div style="padding: 15px; border: 1px solid #e1e1e1; border-radius: 8px; background-color: #ffffff; max-width: 450px; margin: 0 auto; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 
-                <button type="submit" style="border: none; background: none; padding: 0; cursor: pointer;">
-                    <img src="{{ asset('modules/koko/img/daraz-koko.png') }}" alt="Pay with Koko" style="width: 100%; max-width: 200px;">
-                </button>
-            </form>
+                <div style="font-size: 16px; color: #555; margin-bottom: 15px; font-weight: 500;">
+                    Pay in 3 installments of <span style="color: #333; font-weight: 700;">{{ $koko_currency }} {{ $installment_amount }}</span> with
+                </div>
+
+                <form action="{{ $paymentData['action_url'] }}" method="POST" id="koko_guest_payment_form">
+                    @foreach($paymentData['fields'] as $key => $value)
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endforeach
+                    
+                    <button type="submit" style="border: none; background: none; padding: 0; cursor: pointer; display: inline-block; vertical-align: middle;">
+                        <img src="https://paykoko.com/img/logo1.7ff549c0.png" alt="Koko" style="height: 24px; vertical-align: middle;">
+                    </button>
+                    
+                    <a href="https://paykoko.com/customer-education?Amount={{ $installment_amount }}" target="_blank" style="display: inline-block; vertical-align: middle; margin-left: 5px;">
+                        <img src="https://koko-merchant.oss-ap-southeast-1.aliyuncs.com/bnpl-site-cms-dev/koko-images/info.png" alt="Info" style="height: 15px; vertical-align: middle;">
+                    </a>
+                </form>
+                
+                <p style="margin-top: 15px; font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Secure interest-free payments @if($convenience_fee > 0) <br>(Incl. processing fees) @endif
+                </p>
+            </div>
         </div>
     </div>
 @endif
