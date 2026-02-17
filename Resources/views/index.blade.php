@@ -26,10 +26,7 @@
                 <div class="col-sm-4">
                     <div class="form-group">
                         {!! Form::label('api_key', 'API Key:*') !!}
-                        {!! Form::password('api_key', ['class' => 'form-control', 'placeholder' => 'Enter Koko API Key']) !!}
-                        @if(!empty($koko_setting->api_key))
-                            <p class="help-block"><i class="fa fa-lock"></i> API Key is already set (Encrypted)</p>
-                        @endif
+                        {!! Form::text('api_key', $koko_setting->api_key, ['class' => 'form-control', 'placeholder' => 'Enter Koko API Key']) !!}
                     </div>
                 </div>
                 <div class="col-sm-4">
