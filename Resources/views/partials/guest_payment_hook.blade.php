@@ -38,8 +38,8 @@
         $koko_url = ($koko_mode == 'live') ? 'https://prodapi.paykoko.com/api/merchants/orderCreate' : 'https://devapi.paykoko.com/api/merchants/orderCreate';
         
         // Generate Signature
-        $pluginName = "paykoko";
-        $pluginVersion = "2.0.7";
+        $pluginName = "woocommerce";
+        $pluginVersion = "8.6.0";
         $returnUrl = route('koko.return', ['id' => $transaction->id]);
         $responseUrl = route('koko.notify');
         $cancelUrl = $returnUrl;

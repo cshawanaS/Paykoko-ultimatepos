@@ -40,8 +40,8 @@
         // Generate Signature
         // Data string format: merchant + amount + currency + pluginName + pluginVersion + returnUrl + responseUrl + orderId + reference + firstName + lastName + email + productName + apiKey + cancelUrl
         
-        $pluginName = "paykoko";
-        $pluginVersion = "2.0.7";
+        $pluginName = "woocommerce";
+        $pluginVersion = "8.6.0";
         $returnUrl = route('koko.return', ['id' => $transaction->id]);
         $responseUrl = route('koko.notify');
         $cancelUrl = $returnUrl;
