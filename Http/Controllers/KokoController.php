@@ -36,10 +36,11 @@ class KokoController extends Controller
     {
         $business_id = request()->session()->get('user.business_id');
 
-        if (!(auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'kokobnpl_module'))) {
+        if (!(auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'kokobnpl_module') || auth()->user()->can('business_settings.access'))) {
             abort(403, 'Unauthorized action.');
         }
 
+        $business = Business::where('id', $business_id)->first();
         $koko_setting = KokoSetting::where('business_id', $business_id)->first();
         
         // If no settings exist, create a default one
@@ -50,14 +51,26 @@ class KokoController extends Controller
             ]);
         }
 
-        $payment_methods = $this->transactionUtil->payment_types(null, true, $business_id);
         $accounts = [];
         if ($this->moduleUtil->isModuleEnabled('Account')) {
             $accounts = \App\Account::forDropdown($business_id, true, false);
         }
 
+        // Get available custom payment types to show their current labels
+        $custom_labels = $business->custom_labels;
+        if (!is_array($custom_labels)) {
+            $custom_labels = json_decode($custom_labels, true) ?? [];
+        }
+
+        $payment_methods = [];
+        for ($i=1; $i<=7; $i++) {
+            $key = 'custom_pay_' . $i;
+            $current_label = $custom_labels['payments'][$key] ?? 'Custom Payment ' . $i;
+            $payment_methods[$key] = 'Slot ' . $i . ' (Current Label: ' . $current_label . ')';
+        }
+
         return view('koko::index')
-            ->with(compact('koko_setting', 'payment_methods', 'accounts'));
+            ->with(compact('koko_setting', 'payment_methods', 'accounts', 'custom_labels', 'business'));
     }
 
     /**
@@ -67,7 +80,7 @@ class KokoController extends Controller
     {
         $business_id = request()->session()->get('user.business_id');
 
-        if (!(auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'kokobnpl_module'))) {
+        if (!(auth()->user()->can('superadmin') || $this->moduleUtil->hasThePermissionInSubscription($business_id, 'kokobnpl_module') || auth()->user()->can('business_settings.access'))) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -78,14 +91,14 @@ class KokoController extends Controller
                 'fee_percentage', 'max_fee_amount'
             ]);
 
-            // Do not overwrite sensitive keys if they are empty or contain placeholder
+            // Do not overwrite sensitive keys if they are empty
             if (empty($input['api_key'])) {
                 unset($input['api_key']);
             }
-            if (empty($input['public_key']) || $input['public_key'] == '--- KEY ALREADY SET ---') {
+            if (empty($input['public_key'])) {
                 unset($input['public_key']);
             }
-            if (empty($input['private_key']) || $input['private_key'] == '--- KEY ALREADY SET ---') {
+            if (empty($input['private_key'])) {
                 unset($input['private_key']);
             }
 
@@ -98,12 +111,27 @@ class KokoController extends Controller
                 $input
             );
 
+            // Auto-update Global Custom Label
+            $payment_method = $request->input('payment_method');
+            $payment_label = $request->input('payment_label');
+
+            if (!empty($payment_method) && !empty($payment_label)) {
+                $business = Business::find($business_id);
+                $custom_labels = $business->custom_labels;
+                if (!is_array($custom_labels)) {
+                    $custom_labels = json_decode($custom_labels, true) ?? [];
+                }
+                $custom_labels['payments'][$payment_method] = $payment_label;
+                $business->custom_labels = $custom_labels;
+                $business->save();
+            }
+
             $output = [
                 'success' => true,
-                'msg' => __('lang_v1.success')
+                'msg' => __('business.settings_updated_success')
             ];
         } catch (\Exception $e) {
-            Log::error('Koko Settings Update Error: ' . $e->getMessage());
+            Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
             $output = [
                 'success' => false,
                 'msg' => __('messages.something_went_wrong')
@@ -171,7 +199,7 @@ class KokoController extends Controller
             }
 
         } catch (\Exception $e) {
-            Log::error('Koko Webhook Exception: ' . $e->getMessage());
+            Log::emergency('File:'.$e->getFile().'Line:'.$e->getLine().'Message:'.$e->getMessage());
             return response('Error', 500);
         }
     }
@@ -252,7 +280,7 @@ class KokoController extends Controller
      */
     protected function isPaymentExists($payment_id, $payment_method)
     {
-        return TransactionPayment::where('note', 'LIKE', '%' . $payment_id . '%')
+        return TransactionPayment::where('transaction_no', $payment_id)
             ->where('method', $payment_method)
             ->exists();
     }
@@ -262,39 +290,67 @@ class KokoController extends Controller
      */
     protected function processPayment($transaction, $amount, $currency, $payment_id, $kokoSetting)
     {
-        try {
-            DB::beginTransaction();
+        // DEBUG: Log incoming parameters
+        Log::debug("Koko processPayment: transaction_id=" . $transaction->id . ", amount=" . $amount . ", payment_id=" . ($payment_id ?? 'NULL') . ", currency=" . $currency);
+        
+        // SECURITY: Final validation before creating payment
+        if (empty($payment_id)) {
+            Log::error("Koko processPayment: Rejecting payment with missing payment_id", ['transaction_id' => $transaction->id]);
+            throw new \Exception("Invalid payment_id: payment creation rejected");
+        }
+        
+        // Mock session user if needed (for webhook)
+        $original_user_id = session('user.id');
+        $business = Business::find($transaction->business_id);
+        if ($business && $business->owner_id && empty($original_user_id)) {
+            session(['user.id' => $business->owner_id]);
+        }
 
+        DB::beginTransaction();
+        try {
+            $transaction = Transaction::where('id', $transaction->id)->lockForUpdate()->first();
             $business_id = $transaction->business_id;
             
             // 1. Calculate and Add Convenience Fee if enabled
-            // We need to check if the payment includes a fee
-            // For now, let's assume we record the amount received
-            
-            // In PayHere implementation, we added the fee to the invoice first
             $feeService = new KokoFeeService();
             $feeData = $feeService->calculateConvenienceFee($transaction->final_total, $kokoSetting);
+            $convenience_fee = $feeData['convenience_fee'] ?? 0;
             
-            if ($kokoSetting->enable_fee && $feeData['convenience_fee'] > 0) {
-                // Add fee to invoice
-                $transaction->final_total += $feeData['convenience_fee'];
-                $transaction->save();
-                
-                // Log the fee addition
-                Log::info('Koko: Added convenience fee ' . $feeData['convenience_fee'] . ' to invoice ' . $transaction->invoice_no);
+            if ($kokoSetting->enable_fee && $convenience_fee > 0) {
+                // Add fee to invoice like PayHere
+                if (empty($transaction->additional_expense_key_1) || $transaction->additional_expense_key_1 !== 'Koko Convenience Fee') {
+                    $transaction->additional_expense_key_1 = 'Koko Convenience Fee';
+                    $transaction->additional_expense_value_1 = $convenience_fee;
+                    $transaction->final_total += $convenience_fee;
+                    $transaction->save();
+                    
+                    Log::info("Koko Module: Convenience fee added to invoice", [
+                        'transaction_id' => $transaction->id,
+                        'fee' => $convenience_fee,
+                        'new_total' => $transaction->final_total
+                    ]);
+
+                    // Refresh to get updated final_total
+                    $transaction = Transaction::where('id', $transaction->id)->lockForUpdate()->first();
+                }
             }
+
+            $target_account_id = $kokoSetting->pos_account_id ?? $kokoSetting->account_id;
+            $payment_method = $kokoSetting->payment_method ?? 'custom_pay_1';
+            $created_by = session('user.id') ?? (auth()->id() ?? 1);
 
             // 2. Create Payment Entry
             $payment_data = [
                 'transaction_id' => $transaction->id,
                 'business_id' => $business_id,
-                'amount' => $transaction->final_total, // Record full amount including fee
-                'method' => $kokoSetting->payment_method ?? 'custom_pay_1',
+                'amount' => $transaction->final_total, 
+                'method' => $payment_method,
+                'transaction_no' => $payment_id,
                 'paid_on' => \Carbon\Carbon::now()->toDateTimeString(),
-                'created_by' => 1, // System/Admin
+                'created_by' => $created_by,
                 'payment_for' => $transaction->contact_id,
-                'note' => 'Koko Payment ID: ' . $payment_id,
-                'account_id' => $kokoSetting->account_id
+                'note' => 'Koko Payment Ref: ' . $payment_id . ($convenience_fee > 0 ? ' (Incl. Fee: ' . $convenience_fee . ')' : ''),
+                'account_id' => $target_account_id
             ];
 
             $payment = TransactionPayment::create($payment_data);
@@ -303,13 +359,24 @@ class KokoController extends Controller
             $this->transactionUtil->updatePaymentStatus($transaction->id);
 
             DB::commit();
-            Log::info('Koko: Payment processed successfully for invoice ' . $transaction->invoice_no . ' with Trn ID: ' . $payment_id);
+            Log::info("Koko Module: Payment Processed Success", [
+                'order_id' => $transaction->invoice_no,
+                'payment_amount' => $transaction->final_total,
+                'payment_id' => $payment_id
+            ]);
             
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Koko Payment Processing Error: ' . $e->getMessage());
+            Log::error("Koko Module Processing Error: " . $e->getMessage());
             return false;
+        } finally {
+            // Restore original session state
+            if ($original_user_id !== null) {
+                session(['user.id' => $original_user_id]);
+            } else {
+                session()->forget('user.id');
+            }
         }
     }
 }
