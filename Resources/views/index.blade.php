@@ -80,14 +80,14 @@
         </div>
         <div class="box-body">
             <div class="row">
-                <div class="col-sm-3">
+                <div class="col-sm-4">
                     <div class="form-group">
                         {!! Form::label('payment_method', 'Payment Slot Mapping:*') !!}
                         {!! Form::select('payment_method', $payment_methods, $koko_setting->payment_method, ['class' => 'form-control select2', 'style' => 'width:100%', 'required']) !!}
                         <p class="help-block">Select an empty "Custom Payment" slot to use for Koko.</p>
                     </div>
                 </div>
-                <div class="col-sm-3">
+                <div class="col-sm-4">
                     <div class="form-group">
                         {!! Form::label('payment_label', 'Display Label:') !!}
                         @php
@@ -98,17 +98,11 @@
                         <p class="help-block">This will update the label in your POS and Reports.</p>
                     </div>
                 </div>
-                <div class="col-sm-3">
+                <div class="col-sm-4">
                     <div class="form-group">
                         {!! Form::label('pos_account_id', 'Internal Account Mapping:') !!}
                         {!! Form::select('pos_account_id', $accounts, $koko_setting->pos_account_id, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => 'Select Account']) !!}
                         <p class="help-block">Payments made via Koko will be recorded against this internal POS account.</p>
-                    </div>
-                </div>
-                <div class="col-sm-3">
-                    <div class="form-group">
-                        {!! Form::label('account_id', 'Default Account (Non-POS):') !!}
-                        {!! Form::select('account_id', $accounts, $koko_setting->account_id, ['class' => 'form-control select2', 'style' => 'width:100%', 'placeholder' => 'Select Account']) !!}
                     </div>
                 </div>
             </div>
