@@ -236,19 +236,16 @@ class KokoController extends Controller
                 'msg' => 'Payment successful for Order ID: ' . ($request->input('orderId') ?? $transaction->invoice_no)
             ];
             
-            // Redirect to invoice view or success page
-            return redirect()
-                ->route('view_invoice', ['token' => $transaction->invoice_token])
-                ->with('status', $output);
+            $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
+            return redirect($link)->with('status', $output);
         } else {
             $output = [
                 'success' => false,
                 'msg' => 'Payment failed or cancelled. Status: ' . $status
             ];
             
-            return redirect()
-                ->route('view_invoice', ['token' => $transaction->invoice_token])
-                ->with('status', $output);
+            $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
+            return redirect($link)->with('status', $output);
         }
     }
 
