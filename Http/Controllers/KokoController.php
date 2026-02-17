@@ -50,7 +50,7 @@ class KokoController extends Controller
             ]);
         }
 
-        $payment_methods = $this->transactionUtil->getPaymentMethods();
+        $payment_methods = $this->transactionUtil->payment_types(null, true, $business_id);
         $accounts = [];
         if ($this->moduleUtil->isModuleEnabled('Account')) {
             $accounts = \App\Account::forDropdown($business_id, true, false);
