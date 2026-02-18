@@ -153,17 +153,28 @@ class KokoController extends Controller
      */
     public function handleCallback(Request $request, $id = null)
     {
-        Log::info('Koko Callback Received: ' . json_encode($request->all()));
+        // Detect if this is a browser redirect (frontend) vs background webhook
+        // 1. Explicit frontend parameter
+        // 3. GET request is typically a browser redirect
+        // 4. Accept header contains text/html (browser)
+        $is_get = $request->isMethod('get');
+        $has_frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN);
+        $is_browser = str_contains($request->header('Accept'), 'text/html');
+        
+        $frontend = $has_frontend || $is_get || $is_browser;
+
+        Log::info('Koko Callback Received: ', [
+            'method' => $request->method(),
+            'is_get' => $is_get,
+            'is_browser' => $is_browser,
+            'frontend_det' => $frontend,
+            'params' => $request->all()
+        ]);
 
         $order_id = $request->input('orderId') ?? $id;
         $trn_id = $request->input('trnId');
         $status = $request->input('status');
         $desc = $request->input('desc');
-        
-        // Detect if this is a browser redirect (frontend) vs background webhook
-        // 1. Explicit frontend parameter
-        // 2. GET request is typically a browser redirect
-        $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN) || $request->isMethod('get');
 
         try {
             if (empty($order_id)) {
