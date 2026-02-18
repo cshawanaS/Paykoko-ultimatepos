@@ -248,7 +248,7 @@ class KokoController extends Controller
      */
     public function statusPage(Request $request, $id)
     {
-        $transaction = Transaction::with(['business', 'location', 'contact', 'payment_lines'])
+        $transaction = Transaction::with(['business', 'business.currency', 'location', 'contact', 'payment_lines'])
             ->findOrFail($id);
 
         $status = $request->query('status');

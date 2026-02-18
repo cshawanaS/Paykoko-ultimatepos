@@ -39,13 +39,19 @@
                         </div>
                         <div class="col-xs-6">
                             <label class="text-muted" style="font-weight: normal; margin-bottom: 5px;">{{ __('sale.total_amount') }}:</label>
-                            <div style="font-weight: bold; color: #444;">@format_currency($transaction->final_total)</div>
+                            <div style="font-weight: bold; color: #444;">
+                                @if(!empty($transaction->business))
+                                    @format_currency($transaction->final_total)
+                                @else
+                                    {{ $transaction->final_total }}
+                                @endif
+                            </div>
                         </div>
                         <div class="col-xs-12" style="margin-top: 15px;">
                             <label class="text-muted" style="font-weight: normal; margin-bottom: 5px;">{{ __('lang_v1.payment_method') }}:</label>
                             <div style="font-weight: bold; color: #444;">Koko BNPL</div>
                         </div>
-                        @if($payment)
+                        @if(!empty($payment) && is_object($payment))
                         <div class="col-xs-12" style="margin-top: 15px;">
                             <label class="text-muted" style="font-weight: normal; margin-bottom: 5px;">{{ __('lang_v1.transaction_id') }}:</label>
                             <div style="font-weight: bold; color: #444;">{{ $payment->payment_ref_no }}</div>
