@@ -15,7 +15,8 @@ use App\Utils\ModuleUtil;
 use App\Utils\BusinessUtil;
 use Modules\Koko\Entities\KokoSetting;
 use Modules\Koko\Services\KokoFeeService;
-use Modules\Koko\Services\KokoService; // Added KokoService import
+use Modules\Koko\Services\KokoService;
+use App\Events\TransactionPaymentAdded; // Added for accounting sync
 
 class KokoController extends Controller
 {
@@ -374,10 +375,18 @@ class KokoController extends Controller
                 'created_by' => $created_by,
                 'payment_for' => $transaction->contact_id,
                 'note' => 'Koko Payment Ref: ' . $payment_id . ($convenience_fee > 0 ? ' (Incl. Fee: ' . $convenience_fee . ')' : ''),
-                'account_id' => $target_account_id
+                'account_id' => $target_account_id,
+                'payment_ref_no' => $this->transactionUtil->generateReferenceNumber('sell_payment', $this->transactionUtil->setAndGetReferenceCount('sell_payment', $transaction->business_id), $transaction->business_id)
             ];
 
             $payment = TransactionPayment::create($payment_data);
+
+            // ACCOUNTING FIX: Dispatch event to sync with Map Account / Address Book
+            if(!empty($target_account_id)){
+                $account_transaction_data = $payment_data;
+                $account_transaction_data['transaction_type'] = $transaction->type;
+                event(new TransactionPaymentAdded($payment, $account_transaction_data));
+            }
 
             // 3. Update Transaction Payment Status
             $this->transactionUtil->updatePaymentStatus($transaction->id);
