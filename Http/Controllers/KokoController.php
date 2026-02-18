@@ -374,7 +374,7 @@ class KokoController extends Controller
                 'paid_on' => \Carbon\Carbon::now()->toDateTimeString(),
                 'created_by' => $created_by,
                 'payment_for' => $transaction->contact_id,
-                'note' => 'Koko Payment Ref: ' . $payment_id . ($convenience_fee > 0 ? ' (Incl. Fee: ' . $convenience_fee . ')' : ''),
+                'note' => 'Koko Payment Ref: ' . $payment_id . ' (Order: ' . $transaction->invoice_no . ')' . ($convenience_fee > 0 ? ' (Incl. Fee: ' . $convenience_fee . ')' : ''),
                 'account_id' => $target_account_id,
                 'payment_ref_no' => $this->transactionUtil->generateReferenceNumber('sell_payment', $this->transactionUtil->setAndGetReferenceCount('sell_payment', $transaction->business_id), $transaction->business_id)
             ];
