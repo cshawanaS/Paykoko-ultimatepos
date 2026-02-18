@@ -227,9 +227,13 @@ class KokoController extends Controller
 
             // Handle Frontend Redirect
             if ($frontend) {
+                if ($status === 'SUCCESS') {
+                    return redirect()->route('koko.success', ['id' => $transaction->id]);
+                }
+
                 $output = [
-                    'success' => ($status === 'SUCCESS'),
-                    'msg' => ($status === 'SUCCESS') ? 'Payment successful' : 'Payment failed'
+                    'success' => false,
+                    'msg' => 'Payment failed or cancelled'
                 ];
                 $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
                 return redirect($link)->with('status', $output);
@@ -242,6 +246,27 @@ class KokoController extends Controller
             if ($frontend) return redirect()->to('/pos');
             return response('Error', 500);
         }
+    }
+
+    /**
+     * Koko Success Page
+     */
+    public function successPage(Request $request, $id)
+    {
+        $transaction = Transaction::with(['business', 'location', 'contact', 'payment_lines'])
+            ->findOrFail($id);
+
+        // Ensure the payment was actually successful
+        if ($transaction->payment_status != 'paid' && $transaction->payment_status != 'partial') {
+            return redirect($this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id));
+        }
+
+        $koko_setting = KokoSetting::where('business_id', $transaction->business_id)->first();
+        $method = $koko_setting->payment_method ?? 'custom_pay_1';
+        $payment = $transaction->payment_lines->where('method', $method)->last();
+
+        return view('koko::success')
+            ->with(compact('transaction', 'payment'));
     }
 
     /**
