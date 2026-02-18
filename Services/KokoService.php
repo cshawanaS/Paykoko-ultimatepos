@@ -56,9 +56,9 @@ class KokoService
         // Using a /webhook/ prefix ensures it is excluded from CSRF in VerifyCsrfToken.php
         $callbackUrl = route('koko.callback', ['id' => $transaction->id]);
         
-        $returnUrl = $callbackUrl;
-        $responseUrl = $callbackUrl;
-        $cancelUrl = $callbackUrl;
+        $returnUrl = $callbackUrl . (strpos($callbackUrl, '?') === false ? '?' : '&') . 'frontend=true';
+        $responseUrl = $callbackUrl; // Webhook doesn't need frontend param
+        $cancelUrl = $returnUrl;
         
         $reference = $koko_setting->merchant_id . rand(111, 999) . '-' . $transaction->invoice_no;
         $firstName = !empty($transaction->contact->first_name) ? $transaction->contact->first_name : $transaction->contact->name;

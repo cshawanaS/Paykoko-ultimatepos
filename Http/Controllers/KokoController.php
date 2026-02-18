@@ -159,7 +159,11 @@ class KokoController extends Controller
         $trn_id = $request->input('trnId');
         $status = $request->input('status');
         $desc = $request->input('desc');
-        $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN);
+        
+        // Detect if this is a browser redirect (frontend) vs background webhook
+        // 1. Explicit frontend parameter
+        // 2. GET request is typically a browser redirect
+        $frontend = filter_var($request->input('frontend'), FILTER_VALIDATE_BOOLEAN) || $request->isMethod('get');
 
         try {
             if (empty($order_id)) {
