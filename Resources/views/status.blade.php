@@ -40,10 +40,10 @@
                         <div class="col-xs-6">
                             <label class="text-muted" style="font-weight: normal; margin-bottom: 5px;">{{ __('sale.total_amount') }}:</label>
                             <div style="font-weight: bold; color: #444;">
-                                @if(!empty($transaction->business))
-                                    @format_currency($transaction->final_total)
+                                @if(!empty($transaction->business) && !empty($transaction->business->currency))
+                                    {{ $transaction->business->currency->symbol }} {{ number_format($transaction->final_total, 2) }}
                                 @else
-                                    {{ $transaction->final_total }}
+                                    {{ number_format($transaction->final_total, 2) }}
                                 @endif
                             </div>
                         </div>
