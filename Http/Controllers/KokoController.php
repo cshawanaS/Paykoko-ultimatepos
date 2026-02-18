@@ -227,16 +227,11 @@ class KokoController extends Controller
 
             // Handle Frontend Redirect
             if ($frontend) {
-                if ($status === 'SUCCESS') {
-                    return redirect()->route('koko.success', ['id' => $transaction->id]);
-                }
-
-                $output = [
-                    'success' => false,
-                    'msg' => 'Payment failed or cancelled'
-                ];
-                $link = $this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id);
-                return redirect($link)->with('status', $output);
+                return redirect()->route('koko.status', [
+                    'id' => $transaction->id,
+                    'status' => $status,
+                    'desc' => $desc
+                ]);
             }
 
             return response('OK', 200);
@@ -249,24 +244,27 @@ class KokoController extends Controller
     }
 
     /**
-     * Koko Success Page
+     * Koko Status Page (Success/Fail/Cancel)
      */
-    public function successPage(Request $request, $id)
+    public function statusPage(Request $request, $id)
     {
         $transaction = Transaction::with(['business', 'location', 'contact', 'payment_lines'])
             ->findOrFail($id);
 
-        // Ensure the payment was actually successful
-        if ($transaction->payment_status != 'paid' && $transaction->payment_status != 'partial') {
-            return redirect($this->transactionUtil->getInvoiceUrl($transaction->id, $transaction->business_id));
+        $status = $request->query('status');
+        $desc = $request->query('desc');
+
+        // If status is missing in URL, infer from transaction
+        if (empty($status)) {
+            $status = ($transaction->payment_status == 'paid' || $transaction->payment_status == 'partial') ? 'SUCCESS' : 'FAILED';
         }
 
         $koko_setting = KokoSetting::where('business_id', $transaction->business_id)->first();
         $method = $koko_setting->payment_method ?? 'custom_pay_1';
         $payment = $transaction->payment_lines->where('method', $method)->last();
 
-        return view('koko::success')
-            ->with(compact('transaction', 'payment'));
+        return view('koko::status')
+            ->with(compact('transaction', 'payment', 'status', 'desc'));
     }
 
     /**

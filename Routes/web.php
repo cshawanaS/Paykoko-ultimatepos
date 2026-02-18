@@ -18,8 +18,8 @@ Route::group(['middleware' => ['web', 'language'], 'prefix' => 'koko'], function
 // Unified Koko Callback (Safe from CSRF via /webhook/* exclusion)
 Route::any('/webhook/koko/callback/{id}', 'KokoController@handleCallback')->name('koko.callback');
 
-// Success Landing Page
-Route::get('/koko/success/{id}', 'KokoController@successPage')->name('koko.success');
+// Status Landing Page
+Route::get('/koko/status/{id}', 'KokoController@statusPage')->name('koko.status');
 
 // Deprecated notification route (Keeping temporary for safe migration if any cached forms exist)
 Route::post('/webhook/koko/notify', 'KokoController@notify')->name('koko.notify');
