@@ -48,14 +48,9 @@
                     </div>
                     
                     <div class="row">
-                        <div class="col-sm-6" style="margin-bottom: 10px;">
-                            <a href="{{ action([\App\Http\Controllers\SellPosController::class, 'showInvoice'], ['token' => $transaction->invoice_token]) }}" class="btn btn-default btn-block btn-lg" style="border-radius: 5px;">
+                        <div class="col-sm-12">
+                            <a href="{{ action([\App\Http\Controllers\SellPosController::class, 'showInvoice'], ['token' => $transaction->invoice_token]) }}" class="btn btn-primary btn-block btn-lg" style="background-color: #4a148c; border: none; border-radius: 5px;">
                                 <i class="fas fa-file-invoice"></i> {{ $is_success ? __('koko::lang.view_invoice') : __('koko::lang.back_to_invoice') }}
-                            </a>
-                        </div>
-                        <div class="col-sm-6">
-                            <a href="/pos" class="btn btn-primary btn-block btn-lg" style="background-color: {{ $is_success ? '#4a148c' : '#444' }}; border: none; border-radius: 5px;">
-                                <i class="fas fa-shopping-cart"></i> {{ __('sale.pos') }}
                             </a>
                         </div>
                     </div>
