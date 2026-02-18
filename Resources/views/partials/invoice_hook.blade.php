@@ -138,6 +138,9 @@
             }
 
             // Popup logic
+            var kokoPopup = null;
+            var popupCheckInterval = null;
+
             var form = document.getElementById('koko_top_payment_form');
             if (form) {
                 form.onsubmit = function(e) {
@@ -145,7 +148,7 @@
                     var left = (window.innerWidth / 2) - (w / 2) + window.screenX;
                     var top = (window.innerHeight / 2) - (h / 2) + window.screenY;
                     
-                    window.open('', 'koko_popup', 'width='+w+',height='+h+',top='+top+',left='+left+',status=no,resizable=yes,scrollbars=yes');
+                    kokoPopup = window.open('', 'koko_popup', 'width='+w+',height='+h+',top='+top+',left='+left+',status=no,resizable=yes,scrollbars=yes');
                     document.getElementById('koko_loading_overlay').style.display = 'flex';
                     
                     // Reset overlay state
@@ -153,6 +156,18 @@
                     document.getElementById('koko_overlay_title').innerText = "{{ __('koko::lang.connecting_to_koko') }}";
                     document.getElementById('koko_overlay_msg').innerText = "{{ __('koko::lang.payment_in_progress') }}";
                     document.getElementById('koko_overlay_footer').style.display = 'none';
+
+                    // Monitor closure
+                    if (popupCheckInterval) clearInterval(popupCheckInterval);
+                    popupCheckInterval = setInterval(function() {
+                        if (kokoPopup && kokoPopup.closed) {
+                            clearInterval(popupCheckInterval);
+                            var footer = document.getElementById('koko_overlay_footer');
+                            if (footer && footer.style.display === 'none') {
+                                document.getElementById('koko_loading_overlay').style.display = 'none';
+                            }
+                        }
+                    }, 1000);
                 };
             }
 
@@ -162,6 +177,7 @@
                 if (event.origin !== window.location.origin) return;
 
                 if (event.data && event.data.type === 'KOKO_PAYMENT_STATUS') {
+                    if (popupCheckInterval) clearInterval(popupCheckInterval);
                     handleKokoStatus(event.data);
                 }
             });
