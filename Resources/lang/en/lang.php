@@ -12,4 +12,9 @@ return [
     'view_invoice' => 'View Invoice',
     'back_to_invoice' => 'Back to Invoice',
     'koko_settings' => 'Koko Settings',
+    'connecting_to_koko' => 'Connecting to Koko...',
+    'payment_in_progress' => 'Payment in progress...',
+    'please_wait' => 'Please wait',
+    'done' => 'Done',
+    'close' => 'Close',
 ];

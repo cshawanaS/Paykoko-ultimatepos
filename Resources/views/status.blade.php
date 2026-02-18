@@ -68,6 +68,28 @@
     </div>
 </div>
 
+<script>
+    (function() {
+        // Send message to opener (parent window)
+        if (window.opener) {
+            try {
+                window.opener.postMessage({
+                    type: 'KOKO_PAYMENT_STATUS',
+                    status: "{{ $status }}",
+                    desc: "{{ $desc }}"
+                }, window.location.origin);
+                
+                // Close the popup after a short delay to ensure the message is delivered
+                setTimeout(function() {
+                    window.close();
+                }, 1000);
+            } catch (e) {
+                console.error("Failed to send message to parent window:", e);
+            }
+        }
+    })();
+</script>
+
 <style>
     body {
         background-color: #f4f7f6;

@@ -36,7 +36,7 @@
                 @endif
             </div>
 
-            <form action="{{ $paymentData['action_url'] }}" method="POST" id="koko_top_payment_form">
+            <form action="{{ $paymentData['action_url'] }}" method="POST" id="koko_top_payment_form" target="koko_popup">
                 @foreach($paymentData['fields'] as $key => $value)
                     <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                 @endforeach
@@ -54,6 +54,23 @@
             
             <div style="margin-top: 12px; font-size: 10px; color: #888; text-transform: uppercase; font-weight: 700; letter-spacing: 0.1em;">
                 Interest-free • BNPL Partner
+            </div>
+        </div>
+    </div>
+
+    <!-- Koko Loading Overlay -->
+    <div id="koko_loading_overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); z-index: 10000; justify-content: center; align-items: center; font-family: 'Inter', sans-serif;">
+        <div class="text-center" style="max-width: 400px; padding: 40px; border-radius: 20px; background: #fff; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
+            <div id="koko_overlay_icon">
+                <i class="fa fa-refresh fa-spin fa-3x fa-fw" style="color: #ff3399;"></i>
+            </div>
+            <h3 id="koko_overlay_title" style="color: #333; margin-top: 25px; font-weight: 700; font-size: 24px;">{{ __('koko::lang.connecting_to_koko') }}</h3>
+            <p id="koko_overlay_msg" style="color: #666; font-size: 16px; margin-top: 10px;">{{ __('koko::lang.please_wait') }}</p>
+            
+            <div id="koko_overlay_footer" style="display: none; margin-top: 30px;">
+                <button type="button" onclick="document.getElementById('koko_loading_overlay').style.display='none'" class="btn btn-default" style="border-radius: 8px; padding: 10px 30px;">
+                    {{ __('koko::lang.close') }}
+                </button>
             </div>
         </div>
     </div>
@@ -118,6 +135,66 @@
             if (widget && container) {
                 container.appendChild(widget);
                 widget.style.display = 'block';
+            }
+
+            // Popup logic
+            var form = document.getElementById('koko_top_payment_form');
+            if (form) {
+                form.onsubmit = function(e) {
+                    var w = 500, h = 700;
+                    var left = (window.innerWidth / 2) - (w / 2) + window.screenX;
+                    var top = (window.innerHeight / 2) - (h / 2) + window.screenY;
+                    
+                    window.open('', 'koko_popup', 'width='+w+',height='+h+',top='+top+',left='+left+',status=no,resizable=yes,scrollbars=yes');
+                    document.getElementById('koko_loading_overlay').style.display = 'flex';
+                    
+                    // Reset overlay state
+                    document.getElementById('koko_overlay_icon').innerHTML = '<i class="fa fa-refresh fa-spin fa-3x fa-fw" style="color: #ff3399;"></i>';
+                    document.getElementById('koko_overlay_title').innerText = "{{ __('koko::lang.connecting_to_koko') }}";
+                    document.getElementById('koko_overlay_msg').innerText = "{{ __('koko::lang.payment_in_progress') }}";
+                    document.getElementById('koko_overlay_footer').style.display = 'none';
+                };
+            }
+
+            // Listen for window messages from the popup
+            window.addEventListener('message', function(event) {
+                // Security check
+                if (event.origin !== window.location.origin) return;
+
+                if (event.data && event.data.type === 'KOKO_PAYMENT_STATUS') {
+                    handleKokoStatus(event.data);
+                }
+            });
+
+            function handleKokoStatus(data) {
+                var overlay = document.getElementById('koko_loading_overlay');
+                var title = document.getElementById('koko_overlay_title');
+                var msg = document.getElementById('koko_overlay_msg');
+                var icon = document.getElementById('koko_overlay_icon');
+                var footer = document.getElementById('koko_overlay_footer');
+
+                if (data.status === 'SUCCESS') {
+                    icon.innerHTML = '<i class="fas fa-check-circle fa-4x" style="color: #4caf50;"></i>';
+                    title.innerText = "{{ __('koko::lang.done') }}!";
+                    msg.innerText = "{{ __('koko::lang.payment_successful') }}";
+                    
+                    // Refresh parent window after delay
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    icon.innerHTML = '<i class="fas fa-exclamation-circle fa-4x" style="color: #f44336;"></i>';
+                    title.innerText = "{{ __('koko::lang.payment_failed') }}";
+                    msg.innerText = data.desc || "{{ __('koko::lang.something_went_wrong_during_payment') }}";
+                    footer.style.display = 'block';
+                    
+                    // Auto hide after 8 seconds
+                    setTimeout(function() {
+                        if (overlay.style.display === 'flex' && footer.style.display === 'block') {
+                            overlay.style.display = 'none';
+                        }
+                    }, 5000);
+                }
             }
         })();
     </script>
