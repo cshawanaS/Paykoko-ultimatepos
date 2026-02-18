@@ -67,6 +67,10 @@
             <h3 id="koko_overlay_title" style="color: #333; margin-top: 25px; font-weight: 700; font-size: 24px;">{{ __('koko::lang.connecting_to_koko') }}</h3>
             <p id="koko_overlay_msg" style="color: #666; font-size: 16px; margin-top: 10px;">{{ __('koko::lang.please_wait') }}</p>
             
+            <div id="koko_overlay_timer" style="display: none; margin-top: 20px; font-weight: 700; color: #ff3399; font-size: 18px;">
+                <span id="koko_timer_seconds">5</span>s ...
+            </div>
+
             <div id="koko_overlay_footer" style="display: none; margin-top: 30px;">
                 <button type="button" onclick="document.getElementById('koko_loading_overlay').style.display='none'" class="btn btn-default" style="border-radius: 8px; padding: 10px 30px;">
                     {{ __('koko::lang.close') }}
@@ -188,28 +192,43 @@
                 var msg = document.getElementById('koko_overlay_msg');
                 var icon = document.getElementById('koko_overlay_icon');
                 var footer = document.getElementById('koko_overlay_footer');
+                var timerDiv = document.getElementById('koko_overlay_timer');
+                var timerSecs = document.getElementById('koko_timer_seconds');
+
+                var seconds = 5;
+                timerDiv.style.display = 'block';
+                timerSecs.innerText = seconds;
 
                 if (data.status === 'SUCCESS') {
                     icon.innerHTML = '<i class="fas fa-check-circle fa-4x" style="color: #4caf50;"></i>';
                     title.innerText = "{{ __('koko::lang.done') }}!";
                     msg.innerText = "{{ __('koko::lang.payment_successful') }}";
                     
-                    // Refresh parent window after delay
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 2000);
+                    var countdown = setInterval(function() {
+                        seconds--;
+                        timerSecs.innerText = seconds;
+                        if (seconds <= 0) {
+                            clearInterval(countdown);
+                            window.location.reload();
+                        }
+                    }, 1000);
                 } else {
                     icon.innerHTML = '<i class="fas fa-exclamation-circle fa-4x" style="color: #f44336;"></i>';
                     title.innerText = "{{ __('koko::lang.payment_failed') }}";
                     msg.innerText = data.desc || "{{ __('koko::lang.something_went_wrong_during_payment') }}";
                     footer.style.display = 'block';
                     
-                    // Auto hide after 8 seconds
-                    setTimeout(function() {
-                        if (overlay.style.display === 'flex' && footer.style.display === 'block') {
-                            overlay.style.display = 'none';
+                    var countdown = setInterval(function() {
+                        seconds--;
+                        timerSecs.innerText = seconds;
+                        if (seconds <= 0) {
+                            clearInterval(countdown);
+                            if (overlay.style.display === 'flex') {
+                                overlay.style.display = 'none';
+                                timerDiv.style.display = 'none';
+                            }
                         }
-                    }, 5000);
+                    }, 1000);
                 }
             }
         })();

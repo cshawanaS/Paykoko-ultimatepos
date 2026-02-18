@@ -2,7 +2,13 @@
 @section('title', __('koko::lang.payment_status'))
 
 @section('content')
-<div class="container">
+<div id="minimal_processing" style="display: none; text-align: center; margin-top: 100px; font-family: 'Inter', sans-serif;">
+    <i class="fa fa-refresh fa-spin fa-2x" style="color: #ff3399;"></i>
+    <h3 style="margin-top: 20px; color: #333;">{{ __('koko::lang.processing_payment_status') }}...</h3>
+    <p class="text-muted">{{ __('koko::lang.please_wait_closing_window') }}</p>
+</div>
+
+<div class="container" id="main_status_container">
     <div class="row" style="margin-top: 50px;">
         <div class="col-md-6 col-md-offset-3">
             @php
@@ -70,6 +76,12 @@
 
 <script>
     (function() {
+        // Hide main UI if in a popup to avoid redundancy
+        if (window.opener) {
+            document.getElementById('main_status_container').style.display = 'none';
+            document.getElementById('minimal_processing').style.display = 'block';
+        }
+
         // Send message to opener (parent window)
         if (window.opener) {
             try {
@@ -82,7 +94,7 @@
                 // Close the popup after a short delay to ensure the message is delivered
                 setTimeout(function() {
                     window.close();
-                }, 1000);
+                }, 1500);
             } catch (e) {
                 console.error("Failed to send message to parent window:", e);
             }

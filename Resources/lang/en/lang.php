@@ -17,4 +17,6 @@ return [
     'please_wait' => 'Please wait',
     'done' => 'Done',
     'close' => 'Close',
+    'processing_payment_status' => 'Processing payment status',
+    'please_wait_closing_window' => 'Please wait while we close the window',
 ];
